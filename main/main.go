@@ -67,6 +67,9 @@ func handleWebSocket(controller input.Controller, w http.ResponseWriter, r *http
 
 		case protocol.RightClick:
 			controller.RightClick()	
+
+		case protocol.Scroll:
+			controller.Scroll(msg.Amount)
 		}
 	}
 }
