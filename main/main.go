@@ -5,15 +5,11 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/LekhanJ/relay-desktop/input"
+	"github.com/LekhanJ/relay-desktop/protocol"
 	"github.com/go-vgo/robotgo"
 	"github.com/gorilla/websocket"
 )
-
-type Message struct {
-	Type string `json:"type"`
-	DX float64 `json:"dx"`
-	DY float64 `json:"dy"`	
-}
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
@@ -22,14 +18,19 @@ var upgrader = websocket.Upgrader{
 }
 
 func main() {
-	http.HandleFunc("/ws", handleWebSocket)
+	var controller input.Controller
+	controller = &input.RobotGoController{}
+
+	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+		handleWebSocket(controller, w, r)
+	})
 
 	log.Println("Server listening on :8080")
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
-func handleWebSocket(w http.ResponseWriter, r *http.Request) {
+func handleWebSocket(controller input.Controller, w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
@@ -47,7 +48,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 
-		var msg Message
+		var msg protocol.Message
 
 		err = json.Unmarshal(message, &msg)
 		if err != nil {
@@ -56,8 +57,16 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 		log.Printf("Type=%s dx=%f dy=%f", msg.Type, msg.DX, msg.DY)
 
-		if msg.Type == "move" {
-			moveMouse(int(msg.DX), int(msg.DY))
+		switch msg.Type {
+			
+		case protocol.MouseMove:
+			controller.Move(msg.DX, msg.DY)
+
+		case protocol.LeftClick:
+			controller.LeftClick()
+
+		case protocol.RightClick:
+			controller.RightClick()	
 		}
 	}
 }
