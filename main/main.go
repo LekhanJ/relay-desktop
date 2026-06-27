@@ -7,73 +7,82 @@ import (
 
 	"github.com/LekhanJ/relay-desktop/input"
 	"github.com/LekhanJ/relay-desktop/protocol"
-	"github.com/go-vgo/robotgo"
 	"github.com/gorilla/websocket"
 )
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true
-	},	
+	},
 }
 
 func main() {
-	var controller input.Controller
-	controller = &input.RobotGoController{}
+	var controller input.Controller = &input.RobotGoController{}
 
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		handleWebSocket(controller, w, r)
 	})
 
 	log.Println("Server listening on :8080")
-
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
 func handleWebSocket(controller input.Controller, w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Println(err)
+		log.Println("Upgrade error:", err)
 		return
 	}
-
 	defer conn.Close()
 
-	log.Println("Android Connected")
+	log.Println("Android connected")
 
 	for {
-		_, message, err := conn.ReadMessage();
+		_, data, err := conn.ReadMessage()
 		if err != nil {
-			log.Println(err)
+			log.Println("Read error:", err)
 			break
 		}
 
 		var msg protocol.Message
-
-		err = json.Unmarshal(message, &msg)
-		if err != nil {
+		if err := json.Unmarshal(data, &msg); err != nil {
+			log.Println("Invalid message:", err)
 			continue
 		}
 
-		log.Printf("Type=%s dx=%f dy=%f", msg.Type, msg.DX, msg.DY)
+		log.Printf("Received: %+v\n", msg)
 
 		switch msg.Type {
-			
+
 		case protocol.MouseMove:
 			controller.Move(msg.DX, msg.DY)
 
-		case protocol.LeftClick:
-			controller.LeftClick()
+		case protocol.MouseClick:
+			switch msg.Button {
+			case protocol.LeftButton:
+				controller.LeftClick()
 
-		case protocol.RightClick:
-			controller.RightClick()	
+			case protocol.RightButton:
+				controller.RightClick()
+
+			case protocol.MiddleButton:
+				controller.MiddleClick()
+			}
 
 		case protocol.Scroll:
 			controller.Scroll(msg.Amount)
+
+		case protocol.Zoom:
+			controller.Zoom(msg.Delta)
+
+		case protocol.KeyDown:
+			controller.KeyDown(msg.Key)
+
+		case protocol.KeyUp:
+			controller.KeyUp(msg.Key)
+
+		default:
+			log.Printf("Unknown message type: %s\n", msg.Type)
 		}
 	}
-}
-
-func moveMouse(dx, dy int) {
-	robotgo.MoveRelative(dx, dy)
 }

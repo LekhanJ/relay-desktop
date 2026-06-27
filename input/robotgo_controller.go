@@ -1,8 +1,12 @@
 package input
 
-import "github.com/go-vgo/robotgo"
+import (
+	"github.com/go-vgo/robotgo"
+)
 
-type RobotGoController struct {}
+type RobotGoController struct {
+	zoomAccumulator float64
+}
 
 func (c *RobotGoController) Move(dx, dy int) {
 	x, y := robotgo.Location()
@@ -11,6 +15,10 @@ func (c *RobotGoController) Move(dx, dy int) {
 
 func (c *RobotGoController) LeftClick() {
 	robotgo.Click("left")
+}
+
+func (c *RobotGoController) MiddleClick() {
+	robotgo.Click("center")
 }
 
 func (c *RobotGoController) RightClick() {
@@ -31,4 +39,23 @@ func (c *RobotGoController) KeyDown(key string) {
 
 func (c *RobotGoController) KeyUp(key string) {
 	robotgo.KeyUp(key)
+}
+
+func (c *RobotGoController) Zoom(delta float64) {
+	c.zoomAccumulator += delta
+
+	const threshold = 0.02
+
+	robotgo.KeyToggle("ctrl", "down")
+	defer robotgo.KeyToggle("ctrl", "up")
+
+	for c.zoomAccumulator >= threshold {
+		robotgo.ScrollDir(1, "up")
+		c.zoomAccumulator -= threshold
+	}
+
+	for c.zoomAccumulator <= -threshold {
+		robotgo.ScrollDir(1, "down")
+		c.zoomAccumulator += threshold
+	}
 }
